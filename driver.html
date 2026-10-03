@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TransitPulse | Driver Broadcaster</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: #121212;
+      --border: #2a2a2a;
+      --text: #ffffff;
+      --text-muted: #a0a0a0;
+      --accent-green: #00e676;
+      --accent-yellow: #ffd600;
+      --accent-red: #ff1744;
+      --btn-start: #00c853;
+      --btn-end: #d50000;
+      --seat-empty: #1b5e20;
+      --seat-taken: #b71c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 14px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .status-live {
+      background: rgba(0, 230, 118, 0.15);
+      color: var(--accent-green);
+      border-color: var(--accent-green);
+    }
+
+    .status-live .status-dot {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .status-buffering {
+      background: rgba(255, 214, 0, 0.15);
+      color: var(--accent-yellow);
+      border-color: var(--accent-yellow);
+    }
+
+    .status-buffering .status-dot {
+      background: var(--accent-yellow);
+    }
+
+    .status-offline {
+      background: rgba(255, 23, 68, 0.15);
+      color: var(--accent-red);
+      border-color: var(--accent-red);
+    }
+
+    .status-offline .status-dot {
+      background: var(--accent-red);
+    }
+
+    .status-problem {
+      background: rgba(255, 23, 68, 0.25);
+      color: var(--accent-red);
+      border-color: var(--accent-red);
+    }
+
+    .status-problem .status-dot {
+      background: var(--accent-red);
+      box-shadow: 0 0 10px var(--accent-red);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    select,
+    input {
+      width: 100%;
+      height: 52px;
+      background: #1e1e1e;
+      border: 2px solid var(--border);
+      color: #fff;
+      border-radius: 8px;
+      padding: 0 14px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: #fff;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .data-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .data-box .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .data-box .val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-top: 4px;
+      color: #fff;
+      word-break: break-all;
+    }
+
+    .seating-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .seat-legend {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    .bus-top-view {
+      background: #181818;
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 12px;
+      position: relative;
+    }
+
+    .bus-front,
+    .bus-rear {
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .bus-front {
+      margin-bottom: 10px;
+    }
+
+    .bus-rear {
+      margin-top: 10px;
+    }
+
+    .bus-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 32px 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .aisle {
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #555;
+      font-size: 0.65rem;
+      font-weight: 700;
+      writing-mode: vertical-rl;
+      letter-spacing: 1px;
+      user-select: none;
+    }
+
+    .seat-btn {
+      height: 48px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      font-size: 0.85rem;
+      font-weight: 800;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .seat-btn.available {
+      background: var(--seat-empty);
+      border-color: var(--accent-green);
+      color: #fff;
+    }
+
+    .seat-btn.occupied {
+      background: var(--seat-taken);
+      border-color: var(--accent-red);
+      color: #fff;
+      opacity: 0.75;
+    }
+
+    .seat-subtext {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .reset-btn {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: auto;
+    }
+
+    .main-btn {
+      width: 100%;
+      height: 64px;
+      font-size: 1.25rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .main-btn:active {
+      transform: scale(0.98);
+    }
+
+    #btn-start {
+      background: var(--btn-start);
+      color: #000;
+    }
+
+    #btn-end {
+      background: var(--btn-end);
+      color: #fff;
+      display: none;
+    }
+
+    .route-live {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent-green);
+      margin-bottom: 4px;
+      display: none;
+    }
+
+    .problem-alert {
+      background: rgba(255, 23, 68, 0.2);
+      border: 2px solid var(--accent-red);
+      color: var(--accent-red);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: none;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div>
+      <div class="title">TransitPulse</div>
+      <small style="color: var(--text-muted)">Driver Broadcaster</small>
+    </div>
+    <div id="status-badge" class="status-badge status-offline">
+      <span class="status-dot"></span>
+      <span id="status-text">Standby</span>
+    </div>
+  </header>
+
+  <div class="card" id="setup-card">
+    <div class="field">
+      <label for="route-select">Assigned Corridor & Direction</label>
+      <select id="route-select">
+        <option value="">-- Loading Corridors from Database --</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="vehicle-no">Vehicle Registration No.</label>
+      <input type="text" id="vehicle-no" placeholder="e.g., PB-11-AA-1011" autocapitalize="characters" />
+    </div>
+  </div>
+
+  <div class="route-live" id="route-live-text"></div>
+  <div class="problem-alert" id="problem-alert">⚠ BUS HAS A PROBLEM – STOPPED</div>
+
+  <div class="card">
+    <div class="field">
+      <label for="traffic-select">Traffic Condition</label>
+      <select id="traffic-select">
+        <option value="Normal">Normal</option>
+        <option value="Slow Moving">Slow Moving</option>
+        <option value="Heavy Traffic">Heavy Traffic</option>
+        <option value="Road Block">Road Block / Closed</option>
+        <option value="Accident">Accident Reported</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="vehicle-status">Bus / Vehicle Status</label>
+      <select id="vehicle-status">
+        <option value="Running Fine">Running Fine</option>
+        <option value="Minor Issue">Minor Issue</option>
+        <option value="Breakdown">Breakdown – Stopped</option>
+        <option value="Flat Tyre">Flat Tyre</option>
+        <option value="Need Help">Need Mechanical Help</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="telemetry-grid">
+    <div class="data-box">
+      <div class="label">Speed</div>
+      <div class="val" id="disp-speed">0.0 <span style="font-size:0.8rem">km/h</span></div>
+    </div>
+    <div class="data-box">
+      <div class="label">Empty Seats</div>
+      <div class="val" id="disp-seats" style="color: var(--accent-green)">16 / 16</div>
+    </div>
+    <div class="data-box">
+      <div class="label">Trip Duration</div>
+      <div class="val" id="disp-duration">00:00</div>
+    </div>
+    <div class="data-box">
+      <div class="label">Last Ingest Ping</div>
+      <div class="val" id="disp-last-update" style="font-size: 1rem;">--:--</div>
+    </div>
+    <div class="data-box" style="grid-column: span 2;">
+      <div class="label">Live Coordinates</div>
+      <div class="val" id="disp-coords" style="font-size: 1rem;">Lat: -- | Lng: --</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="seating-header">
+      <label style="margin:0">Live Seat Availability (Top View)</label>
+      <div class="seat-legend">
+        <div class="legend-item">
+          <span class="legend-box" style="background: var(--seat-empty); border: 1px solid var(--accent-green)"></span>
+          <span>Empty</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-box" style="background: var(--seat-taken); border: 1px solid var(--accent-red)"></span>
+          <span>Occupied</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bus-top-view">
+      <div class="bus-front">▲ FRONT OF BUS ▲</div>
+      <div class="bus-grid" id="seats-grid"></div>
+      <div class="bus-rear">▼ REAR OF BUS ▼</div>
+    </div>
+
+    <button class="reset-btn" id="btn-reset-seats">Reset All Seats to Empty</button>
+  </div>
+
+  <div class="actions">
+    <button id="btn-start" class="main-btn">Start Trip</button>
+    <button id="btn-end" class="main-btn">End Trip</button>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin + "/api";
+    const CONFIG = {
+      API_ENDPOINT: `${API_BASE}/telemetry/ingest`,
+      ROUTES_ENDPOINT: `${API_BASE}/routes`,
+      INTERVAL_MS: 4000,
+      TOTAL_SEATS: 16
+    };
+
+    let isBroadcasting = false;
+    let watchId = null;
+    let broadcastInterval = null;
+    let timerInterval = null;
+    let latestPosition = null;
+    let tripStartTime = null;
+
+    const seatStatus = {};
+    for (let i = 1; i <= CONFIG.TOTAL_SEATS; i++) seatStatus["S" + i] = true;
+
+    const statusBadge = document.getElementById("status-badge");
+    const statusText = document.getElementById("status-text");
+    const routeSelect = document.getElementById("route-select");
+    const vehicleInput = document.getElementById("vehicle-no");
+    const trafficSelect = document.getElementById("traffic-select");
+    const vehicleStatus = document.getElementById("vehicle-status");
+    const btnStart = document.getElementById("btn-start");
+    const btnEnd = document.getElementById("btn-end");
+    const btnResetSeats = document.getElementById("btn-reset-seats");
+    const dispSpeed = document.getElementById("disp-speed");
+    const dispSeats = document.getElementById("disp-seats");
+    const dispCoords = document.getElementById("disp-coords");
+    const dispDuration = document.getElementById("disp-duration");
+    const dispLastUpdate = document.getElementById("disp-last-update");
+    const seatsGrid = document.getElementById("seats-grid");
+    const routeLiveText = document.getElementById("route-live-text");
+    const problemAlert = document.getElementById("problem-alert");
+
+    async function loadDriverCorridors() {
+      try {
+        const res = await fetch(CONFIG.ROUTES_ENDPOINT);
+        if (!res.ok) throw new Error("Could not load routes");
+        const routes = await res.json();
+
+        routeSelect.innerHTML = '<option value="">-- Choose Assigned Corridor --</option>';
+        routes.forEach((r) => {
+          const optUp = document.createElement("option");
+          optUp.value = r.route_id;
+          optUp.textContent = `${r.name} (Active)`;
+          routeSelect.appendChild(optUp);
+        });
+      } catch (err) {
+        routeSelect.innerHTML = '<option value="">Failed to connect to database</option>';
+      }
+    }
+
+    function buildSeatLayout() {
+      seatsGrid.innerHTML = "";
+      const rows = CONFIG.TOTAL_SEATS / 4;
+      for (let r = 0; r < rows; r++) {
+        createSeatElement("S" + (r * 4 + 1));
+        createSeatElement("S" + (r * 4 + 2));
+        const aisleElem = document.createElement("div");
+        aisleElem.className = "aisle";
+        aisleElem.innerText = "AISLE";
+        seatsGrid.appendChild(aisleElem);
+        createSeatElement("S" + (r * 4 + 3));
+        createSeatElement("S" + (r * 4 + 4));
+      }
+      updateSeatStats();
+    }
+
+    function createSeatElement(seatId) {
+      const btn = document.createElement("div");
+      btn.id = "seat-" + seatId;
+      btn.className = "seat-btn available";
+      btn.innerHTML = "<span>" + seatId + "</span><span class='seat-subtext'>Free</span>";
+      btn.addEventListener("click", () => toggleSeat(seatId));
+      seatsGrid.appendChild(btn);
+    }
+
+    function toggleSeat(seatId) {
+      seatStatus[seatId] = !seatStatus[seatId];
+      const elem = document.getElementById("seat-" + seatId);
+      if (seatStatus[seatId]) {
+        elem.className = "seat-btn available";
+        elem.innerHTML = "<span>" + seatId + "</span><span class='seat-subtext'>Free</span>";
+      } else {
+        elem.className = "seat-btn occupied";
+        elem.innerHTML = "<span>" + seatId + "</span><span class='seat-subtext'>Taken</span>";
+      }
+      updateSeatStats();
+    }
+
+    function updateSeatStats() {
+      let emptyCount = 0;
+      for (let key in seatStatus) if (seatStatus[key] === true) emptyCount++;
+      dispSeats.innerText = emptyCount + " / " + CONFIG.TOTAL_SEATS;
+      dispSeats.style.color = emptyCount > 0 ? "var(--accent-green)" : "var(--accent-red)";
+    }
+
+    function resetAllSeats() {
+      for (let i = 1; i <= CONFIG.TOTAL_SEATS; i++) {
+        const id = "S" + i;
+        seatStatus[id] = true;
+        const elem = document.getElementById("seat-" + id);
+        if (elem) {
+          elem.className = "seat-btn available";
+          elem.innerHTML = "<span>" + id + "</span><span class='seat-subtext'>Free</span>";
+        }
+      }
+      updateSeatStats();
+    }
+
+    function setStatus(state) {
+      statusBadge.className = "status-badge";
+      if (state === "LIVE") {
+        statusBadge.classList.add("status-live");
+        statusText.innerText = "Broadcasting Live";
+      } else if (state === "BUFFERING") {
+        statusBadge.classList.add("status-buffering");
+        statusText.innerText = "Buffering / Syncing";
+      } else if (state === "PROBLEM") {
+        statusBadge.classList.add("status-problem");
+        statusText.innerText = "Bus Problem";
+      } else {
+        statusBadge.classList.add("status-offline");
+        statusText.innerText = "Offline / Standby";
+      }
+    }
+
+    function checkVehicleProblem() {
+      const status = vehicleStatus.value;
+      if (status === "Breakdown" || status === "Flat Tyre" || status === "Need Help") {
+        problemAlert.style.display = "block";
+        if (isBroadcasting) setStatus("PROBLEM");
+      } else {
+        problemAlert.style.display = "none";
+        if (isBroadcasting) setStatus("LIVE");
+      }
+    }
+
+    function updateDuration() {
+      if (!tripStartTime) return;
+      const diff = Math.floor((new Date() - tripStartTime) / 1000);
+      const mins = Math.floor(diff / 60);
+      const secs = diff % 60;
+      dispDuration.innerText = `${mins < 10 ? "0" + mins : mins}:${secs < 10 ? "0" + secs : secs}`;
+    }
+
+    function handlePosition(pos) {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const spd = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) : "24.0";
+
+      latestPosition = {
+        route_id: routeSelect.value,
+        vehicle_id: vehicleInput.value.trim().toUpperCase(),
+        latitude: parseFloat(lat.toFixed(6)),
+        longitude: parseFloat(lon.toFixed(6)),
+        speed: parseFloat(spd),
+        traffic_condition: trafficSelect.value,
+        vehicle_status: vehicleStatus.value
+      };
+
+      dispCoords.innerText = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      dispSpeed.innerHTML = `${spd} <span style='font-size:0.8rem'>km/h</span>`;
+    }
+
+    async function broadcastLoop() {
+      if (!isBroadcasting) return;
+
+      let empty = 0;
+      const layoutCopy = {};
+      for (let key in seatStatus) {
+        layoutCopy[key] = seatStatus[key];
+        if (seatStatus[key] === true) empty++;
+      }
+
+      // Default coordinates if geolocation is running on a laptop without physical GPS
+      const payload = {
+        route_id: routeSelect.value,
+        vehicle_id: vehicleInput.value.trim().toUpperCase(),
+        latitude: latestPosition ? latestPosition.latitude : 30.339810,
+        longitude: latestPosition ? latestPosition.longitude : 76.386920,
+        speed: latestPosition ? latestPosition.speed : 28.0,
+        traffic_condition: trafficSelect.value,
+        vehicle_status: vehicleStatus.value,
+        available_seats: empty,
+        seats_layout: layoutCopy
+      };
+
+      try {
+        const res = await fetch(CONFIG.API_ENDPOINT, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error("Ingest rejected");
+        checkVehicleProblem();
+
+        const now = new Date();
+        const hh = now.getHours();
+        const mm = now.getMinutes();
+        dispLastUpdate.innerText = `${hh < 10 ? "0" + hh : hh}:${mm < 10 ? "0" + mm : mm}`;
+      } catch (err) {
+        setStatus("BUFFERING");
+      }
+    }
+
+    btnStart.addEventListener("click", () => {
+      if (!routeSelect.value || !vehicleInput.value.trim()) {
+        alert("Please select a route and enter a vehicle registration plate.");
+        return;
+      }
+
+      isBroadcasting = true;
+      routeSelect.disabled = true;
+      vehicleInput.disabled = true;
+      btnStart.style.display = "none";
+      btnEnd.style.display = "block";
+      setStatus("LIVE");
+
+      tripStartTime = new Date();
+      timerInterval = setInterval(updateDuration, 1000);
+      routeLiveText.innerText = `Live: ${routeSelect.options[routeSelect.selectedIndex].text}`;
+      routeLiveText.style.display = "block";
+
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          handlePosition,
+          () => setStatus("LIVE"),
+          {enableHighAccuracy: true}
+        );
+      }
+
+      broadcastLoop();
+      broadcastInterval = setInterval(broadcastLoop, CONFIG.INTERVAL_MS);
+    });
+
+    btnEnd.addEventListener("click", () => {
+      if (!confirm("End active trip broadcast?")) return;
+      isBroadcasting = false;
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      clearInterval(broadcastInterval);
+      clearInterval(timerInterval);
+
+      routeSelect.disabled = false;
+      vehicleInput.disabled = false;
+      btnStart.style.display = "block";
+      btnEnd.style.display = "none";
+      routeLiveText.style.display = "none";
+      problemAlert.style.display = "none";
+      setStatus("STANDBY");
+    });
+
+    btnResetSeats.addEventListener("click", resetAllSeats);
+    vehicleStatus.addEventListener("change", checkVehicleProblem);
+
+    buildSeatLayout();
+    loadDriverCorridors();
+  </script>
+</body>
+
+</html>

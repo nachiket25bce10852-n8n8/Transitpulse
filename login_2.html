@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TransitPulse — Civic Portal Access & Registration</title>
+  <link rel="stylesheet" href="commuter_3.css" />
+  <style>
+    :root {
+      --brand-blue: #0969da;
+      --brand-blue-hover: #0756b5;
+      --nav-dark: #0a1628;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+      --border-color: #cbd5e1;
+      --border-light: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .login-viewport {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background:
+        linear-gradient(180deg, rgba(10, 22, 40, 0.88) 0%, rgba(15, 23, 42, 0.95) 100%),
+        url('https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      padding: 32px 28px;
+    }
+
+    .login-header {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .login-brand-icon {
+      font-size: 2.2rem;
+      margin-bottom: 4px;
+      display: inline-block;
+    }
+
+    .login-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #0a1628;
+      letter-spacing: -0.01em;
+    }
+
+    .login-desc {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 8px;
+      margin-bottom: 22px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .auth-tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: #64748b;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .auth-tab-btn.active {
+      background: #ffffff;
+      color: #0969da;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .form-input,
+    .form-select {
+      height: 44px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 14px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #0f172a;
+      outline: none;
+      background: #ffffff;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.18);
+    }
+
+    .id-hint-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 3px solid #0969da;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 0.74rem;
+      color: #334155;
+      line-height: 1.45;
+      margin-bottom: 20px;
+    }
+
+    .error-msg {
+      background-color: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      color: #92400e;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .success-msg {
+      background-color: #ecfdf5;
+      border-left: 4px solid #10b981;
+      color: #065f46;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .btn-login {
+      width: 100% !important;
+      height: 46px !important;
+      background-color: #0969da !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 6px !important;
+      font-size: 0.95rem !important;
+      font-weight: 700 !important;
+      cursor: pointer !important;
+      box-shadow: 0 2px 6px rgba(9, 105, 218, 0.3) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: background-color 0.15s ease !important;
+    }
+
+    .btn-login:hover {
+      background-color: #0756b5 !important;
+    }
+
+    .btn-login:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body class="login-viewport">
+
+  <section class="login-card" aria-label="TransitPulse Access Control">
+    <div class="login-header">
+      <div class="login-brand-icon">🚏</div>
+      <h1 class="login-title">TransitPulse Civic Portal</h1>
+      <p class="login-desc">Department of Transport • Patiala Municipal Transport</p>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div class="auth-tabs">
+      <button class="auth-tab-btn active" id="tab-btn-login" type="button">Sign In</button>
+      <button class="auth-tab-btn" id="tab-btn-register" type="button">Create Account</button>
+    </div>
+
+    <div id="status-banner" class="error-msg hidden" role="alert"></div>
+
+    <!-- 1. LOGIN FORM -->
+    <form id="login-form">
+      <div class="form-group">
+        <label for="login-username" class="form-label">Authorized Identifier</label>
+        <input type="text" id="login-username" class="form-input" placeholder="e.g., admin_ops, adam_admin, driver_101"
+          required autocomplete="username" />
+      </div>
+
+      <div class="form-group">
+        <label for="login-password" class="form-label">Security PIN / Password</label>
+        <input type="password" id="login-password" class="form-input" placeholder="••••••••" required
+          autocomplete="current-password" />
+      </div>
+
+      <div class="id-hint-box">
+        <strong>Database Verified Access:</strong> Authenticate with credentials verified directly in the SQLite
+        <code>users</code> database.
+      </div>
+
+      <button type="submit" id="btn-login-submit" class="btn-login">Verify & Enter Portal</button>
+    </form>
+
+    <!-- 2. REGISTER FORM -->
+    <form id="register-form" class="hidden">
+      <div class="form-group">
+        <label for="reg-username" class="form-label">Choose Username / Identifier</label>
+        <input type="text" id="reg-username" class="form-input"
+          placeholder="e.g., adam_admin, harpreet_driver, rahul_commuter" required />
+      </div>
+
+      <div class="form-group">
+        <label for="reg-password" class="form-label">Create Security PIN / Password</label>
+        <input type="password" id="reg-password" class="form-input" placeholder="••••••••" required />
+      </div>
+
+      <div class="form-group">
+        <label for="reg-role" class="form-label">Account Type</label>
+        <select id="reg-role" class="form-select">
+          <option value="commuter">Commuter Passenger</option>
+          <option value="driver">Onboard Bus Driver</option>
+          <option value="admin">Operations Administrator</option>
+        </select>
+      </div>
+
+      <div class="id-hint-box">
+        <strong>Self-Provisioning:</strong> New accounts are immediately committed to SQLite and available to the Admin
+        command room.
+      </div>
+
+      <button type="submit" id="btn-reg-submit" class="btn-login" style="background-color: #15803d !important;">Complete
+        Registration</button>
+    </form>
+  </section>
+
+  <script>
+    const API_BASE = window.location.origin + "/api";
+    const tabLogin = document.getElementById("tab-btn-login");
+    const tabRegister = document.getElementById("tab-btn-register");
+    const loginForm = document.getElementById("login-form");
+    const registerForm = document.getElementById("register-form");
+    const statusBanner = document.getElementById("status-banner");
+
+    function showMessage(msg, isSuccess = false) {
+      statusBanner.textContent = msg;
+      statusBanner.className = isSuccess ? "success-msg" : "error-msg";
+      statusBanner.classList.remove("hidden");
+    }
+
+    tabLogin.addEventListener("click", () => {
+      tabLogin.classList.add("active");
+      tabRegister.classList.remove("active");
+      loginForm.classList.remove("hidden");
+      registerForm.classList.add("hidden");
+      statusBanner.classList.add("hidden");
+    });
+
+    tabRegister.addEventListener("click", () => {
+      tabRegister.classList.add("active");
+      tabLogin.classList.remove("active");
+      registerForm.classList.remove("hidden");
+      loginForm.classList.add("hidden");
+      statusBanner.classList.add("hidden");
+    });
+
+    // Handle Login
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusBanner.classList.add("hidden");
+      const btn = document.getElementById("btn-login-submit");
+      btn.disabled = true;
+      btn.textContent = "Verifying...";
+
+      const enteredUsername = document.getElementById("login-username").value.trim();
+      const enteredPassword = document.getElementById("login-password").value.trim();
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            username: enteredUsername,
+            password: enteredPassword
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Authentication failed.");
+
+        sessionStorage.setItem("userRole", data.role);
+        sessionStorage.setItem("userId", data.username);
+
+        const userRole = (data.role || '').toLowerCase().trim();
+
+        // Exact routes matching your workspace filenames
+        if (userRole === "commuter") {
+          window.location.href = "commuter_3.html";
+        } else if (userRole === "driver") {
+          window.location.href = "driver.html";
+        } else if (userRole === "admin") {
+          window.location.href = "admin_2.html";
+        } else {
+          throw new Error(`Unrecognized system role: "${data.role}"`);
+        }
+      } catch (err) {
+        showMessage(err.message, false);
+        btn.disabled = false;
+        btn.textContent = "Verify & Enter Portal";
+      }
+    });
+
+    // Handle Registration
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusBanner.classList.add("hidden");
+      const btn = document.getElementById("btn-reg-submit");
+      btn.disabled = true;
+      btn.textContent = "Registering...";
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            username: document.getElementById("reg-username").value.trim(),
+            password: document.getElementById("reg-password").value.trim(),
+            role: document.getElementById("reg-role").value
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Registration failed.");
+
+        showMessage(`Account created for ${data.username}! You can now Sign In.`, true);
+        registerForm.reset();
+        setTimeout(() => tabLogin.click(), 1200);
+      } catch (err) {
+        showMessage(err.message, false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Complete Registration";
+      }
+    });
+  </script>
+</body>
+
+</html>

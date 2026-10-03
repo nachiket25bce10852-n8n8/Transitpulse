@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TransitPulse Admin Portal - Patiala Operations</title>
+  <link rel="stylesheet" href="admin_2.css">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    #admin-live-map {
+      height: 440px;
+      width: 100%;
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      z-index: 1;
+    }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 44, 34, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #fbf9f5;
+      border: 2px solid #064e3b;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      padding: 26px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-box h2 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+    }
+
+    .form-row {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-row label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #57534e;
+      text-transform: uppercase;
+    }
+
+    .form-row input,
+    .form-row select {
+      padding: 8px 12px;
+      border: 1px solid #d9d2c2;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      background: #fff;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn-delete {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #f87171;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-delete:hover {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    .masked-pin {
+      font-family: monospace;
+      letter-spacing: 2px;
+      font-weight: 800;
+      color: #57534e;
+      background: #e7e5e4;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      user-select: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- CSS Tab Controllers (6 Tabs) -->
+  <input type="radio" name="admin-tab" id="tab-live-map" class="tab-toggle" checked>
+  <input type="radio" name="admin-tab" id="tab-analytics" class="tab-toggle">
+  <input type="radio" name="admin-tab" id="tab-routes" class="tab-toggle">
+  <input type="radio" name="admin-tab" id="tab-stops" class="tab-toggle">
+  <input type="radio" name="admin-tab" id="tab-users" class="tab-toggle">
+  <input type="radio" name="admin-tab" id="tab-passes" class="tab-toggle">
+
+  <div class="admin-layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo-container">
+          <svg class="brand-bus-icon" viewBox="0 0 48 48" fill="none">
+            <rect x="15" y="10" width="26" height="25" rx="6" fill="#3B82F6" />
+            <rect x="21" y="16" width="14" height="13" rx="2.5" fill="#FBBF24" />
+            <circle cx="23.5" cy="25" r="1" fill="#FFFFFF" />
+            <circle cx="32.5" cy="25" r="1" fill="#FFFFFF" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h2>TransitPulse</h2>
+          <span class="brand-subtitle">PATIALA DISPATCH CENTER</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <span class="nav-section-title">Operations</span>
+        <label for="tab-live-map" class="nav-item nav-live-map"><span class="nav-icon">📍</span> Live Fleet GPS
+          Map</label>
+        <label for="tab-analytics" class="nav-item nav-analytics"><span class="nav-icon">📊</span> Analytics &
+          Logs</label>
+
+        <span class="nav-section-title">Fares & Concessions</span>
+        <label for="tab-passes" class="nav-item nav-passes"><span class="nav-icon">🎟️</span> Pass Bookings
+          Registry</label>
+
+        <span class="nav-section-title">Network Infrastructure</span>
+        <label for="tab-routes" class="nav-item nav-routes"><span class="nav-icon">🛣</span> Routes & Sequences</label>
+        <label for="tab-stops" class="nav-item nav-stops"><span class="nav-icon">🚏</span> Bus Stops & GPS</label>
+
+        <span class="nav-section-title">System Security</span>
+        <label for="tab-users" class="nav-item nav-users"><span class="nav-icon">👥</span> User Credentials
+          Directory</label>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar">PB</div>
+        <div class="user-details">
+          <strong>Central Dispatcher</strong>
+          <small>Patiala Municipal Depot</small>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- TAB 1: LIVE MAP -->
+      <section class="tab-content content-live-map">
+        <header class="topbar">
+          <div class="page-title">
+            <h1>Live Fleet GPS Tracking Room</h1>
+            <p>Real-time vehicle telemetry across all active Patiala corridors</p>
+          </div>
+          <div class="topbar-actions">
+            <span class="network-badge" id="fleet-live-badge">0 Buses Online</span>
+            <button class="btn btn-primary" onclick="openModal('modal-route')">+ Add Route</button>
+          </div>
+        </header>
+
+        <div class="dashboard-grid">
+          <div class="card map-card">
+            <div class="card-header">
+              <h3>Live Fleet Telemetry (Patiala Grid)</h3>
+              <span class="tag">Auto-Sync (3s)</span>
+            </div>
+            <div id="admin-live-map"></div>
+          </div>
+
+          <div class="card status-card">
+            <div class="card-header">
+              <h3>Active Vehicles Broadcasting</h3>
+              <span class="tag">Live Feeds</span>
+            </div>
+            <div class="vehicle-list" id="admin-active-vehicles-list">
+              <p style="padding:16px; color:#78716c;">Scanning active driver broadcasts...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: ANALYTICS -->
+      <section class="tab-content content-analytics">
+        <header class="topbar">
+          <div class="page-title">
+            <h1>Operational Analytics & Delay Logs</h1>
+            <p>Audit records logged in SQLite database</p>
+          </div>
+        </header>
+        <div class="card table-card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Route</th>
+                  <th>Bus Plate</th>
+                  <th>Scheduled</th>
+                  <th>Actual</th>
+                  <th>Deviation</th>
+                  <th>Primary Factor</th>
+                </tr>
+              </thead>
+              <tbody id="delay-logs-table-body">
+                <tr>
+                  <td colspan="7">Loading logs...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: PASS BOOKINGS REGISTRY (VANISHES WHEN EXPIRED) -->
+      <section class="tab-content content-passes" style="display:none;" id="section-passes">
+        <header class="topbar">
+          <div class="page-title">
+            <h1>Municipal Concession Pass Issuance Registry</h1>
+            <p>Live audit of active transit passes booked by commuters</p>
+          </div>
+          <div class="topbar-actions">
+            <span class="network-badge" id="passes-total-badge">0 Active Passes</span>
+          </div>
+        </header>
+
+        <div class="card table-card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Booking ID</th>
+                  <th>Commuter (Username)</th>
+                  <th>Pass Scheme</th>
+                  <th>Tariff Paid</th>
+                  <th>Category</th>
+                  <th>Validity Period</th>
+                  <th>Date & Time Issued</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="pass-bookings-table-body">
+                <tr>
+                  <td colspan="8">No active transit pass bookings recorded in database.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: ROUTES -->
+      <section class="tab-content content-routes">
+        <header class="topbar">
+          <div class="page-title">
+            <h1>Transit Network Corridors</h1>
+            <p>Delete or configure active municipal bus corridors</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-route')">+ Create New Route</button>
+          </div>
+        </header>
+
+        <div class="card form-card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Route ID</th>
+                  <th>Corridor Title</th>
+                  <th>Assigned Bus Plate</th>
+                  <th>Default Speed</th>
+                  <th>ETA</th>
+                  <th>Distance</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="routes-table-body">
+                <tr>
+                  <td colspan="7">Loading routes from database...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: BUS STOPS -->
+      <section class="tab-content content-stops">
+        <header class="topbar">
+          <div class="page-title">
+            <h1>Bus Stops & GPS Geofences</h1>
+            <p>Physical stops registered in the bus_stops table</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-stop')">+ Add New GPS Stop</button>
+          </div>
+        </header>
+
+        <div class="card table-card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Stop Code</th>
+                  <th>Stop Name</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Geofence Radius</th>
+                  <th>Associated Routes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="stops-table-body">
+                <tr>
+                  <td colspan="7">Loading stops...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: USER DIRECTORY (PASSWORDS MASKED) -->
+      <section class="tab-content content-users" style="display:none;" id="section-users">
+        <header class="topbar">
+          <div class="page-title">
+            <h1>Authorized User Accounts & Credentials Directory</h1>
+            <p>Complete audit of all commuter, driver, and administrator accounts</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-user')">+ Add Staff Account</button>
+          </div>
+        </header>
+
+        <div class="card table-card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Database ID</th>
+                  <th>Username Identifier</th>
+                  <th>Security PIN / Password</th>
+                  <th>System Role</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <tr>
+                  <td colspan="5">Loading system credentials...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL: ADD ROUTE -->
+  <div class="modal-backdrop" id="modal-route">
+    <div class="modal-box">
+      <h2>+ Register New Transit Corridor</h2>
+      <form id="form-add-route">
+        <div class="form-row">
+          <label>Route Identifier (Key)</label>
+          <input type="text" id="route-id-input" placeholder="e.g., route-106" required />
+        </div>
+        <div class="form-row">
+          <label>Corridor Name</label>
+          <input type="text" id="route-name-input" placeholder="e.g., Route 106: Patiala ⇄ Samana" required />
+        </div>
+        <div class="form-row">
+          <label>Assigned Default Bus Plate</label>
+          <input type="text" id="route-plate-input" placeholder="PB-11-GH-6066" required />
+        </div>
+        <div class="form-row">
+          <label>Default Speed (km/h)</label>
+          <input type="number" id="route-speed-input" value="35" required />
+        </div>
+        <div class="form-row">
+          <label>Estimated Arrival (Mins)</label>
+          <input type="text" id="route-eta-input" value="25" required />
+        </div>
+        <div class="form-row">
+          <label>Remaining Distance</label>
+          <input type="text" id="route-distance-input" value="16.5 km remaining" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-route')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save to SQLite</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD USER -->
+  <div class="modal-backdrop" id="modal-user">
+    <div class="modal-box">
+      <h2>+ Create Authorized Account</h2>
+      <form id="form-add-user">
+        <div class="form-row">
+          <label>Username / Login ID</label>
+          <input type="text" id="user-name-input" placeholder="e.g., driver_harpreet" required />
+        </div>
+        <div class="form-row">
+          <label>Security PIN / Password</label>
+          <input type="password" id="user-pin-input" placeholder="••••••••" required />
+        </div>
+        <div class="form-row">
+          <label>Assigned Role</label>
+          <select id="user-role-input">
+            <option value="commuter">Commuter</option>
+            <option value="driver">Driver</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Register User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API_BASE = window.location.origin + "/api";
+
+    const tabRadioUsers = document.getElementById("tab-users");
+    const tabRadioPasses = document.getElementById("tab-passes");
+    const sectionUsers = document.getElementById("section-users");
+    const sectionPasses = document.getElementById("section-passes");
+
+    // Dynamic Multi-Tab Router
+    document.querySelectorAll('input[name="admin-tab"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        sectionUsers.style.display = tabRadioUsers.checked ? 'block' : 'none';
+        sectionPasses.style.display = tabRadioPasses.checked ? 'block' : 'none';
+        if (map) setTimeout(() => map.invalidateSize(), 200);
+      });
+    });
+
+    function openModal(id) {document.getElementById(id).classList.add('active');}
+    function closeModal(id) {document.getElementById(id).classList.remove('active');}
+
+    // Client-Side Expiration Validator (Guarantees expired passes vanish instantly)
+    function isPassExpired(ticket) {
+      if (!ticket) return true;
+      if (ticket.status && ticket.status.toUpperCase() === 'EXPIRED') return true;
+
+      const now = Date.now();
+      if (ticket.expires_at && typeof ticket.expires_at === 'number') {
+        return now > ticket.expires_at;
+      }
+
+      let bookedTime = NaN;
+      if (ticket.booked_at) {
+        const parts = ticket.booked_at.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (parts) {
+          const day = parseInt(parts[1], 10);
+          const month = parseInt(parts[2], 10) - 1;
+          const year = parseInt(parts[3], 10);
+          let hours = 0, minutes = 0, seconds = 0;
+          const timeMatch = ticket.booked_at.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?/i);
+          if (timeMatch) {
+            hours = parseInt(timeMatch[1], 10);
+            minutes = parseInt(timeMatch[2], 10);
+            seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+            const ampm = timeMatch[4] ? timeMatch[4].toLowerCase() : '';
+            if (ampm === 'pm' && hours < 12) hours += 12;
+            if (ampm === 'am' && hours === 12) hours = 0;
+          }
+          bookedTime = new Date(year, month, day, hours, minutes, seconds).getTime();
+        } else {
+          bookedTime = Date.parse(ticket.booked_at);
+        }
+      }
+
+      if (isNaN(bookedTime)) return false;
+
+      let durationMs = 24 * 60 * 60 * 1000;
+      const val = (ticket.validity || '').toLowerCase();
+      if (val.includes('30') || val.includes('month')) {
+        durationMs = 30 * 24 * 60 * 60 * 1000;
+      } else if (val.includes('24') || val.includes('hour') || val.includes('daily')) {
+        durationMs = 24 * 60 * 60 * 1000;
+      }
+
+      return now > (bookedTime + durationMs);
+    }
+
+    // Initialize Leaflet Map using Esri World Street Map
+    const map = L.map('admin-live-map').setView([30.3398, 76.3869], 13);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri &mdash; Patiala Dispatch Center'
+    }).addTo(map);
+
+    const busMarkers = {};
+
+    // 1. Load Live Fleet Telemetry
+    async function loadTelemetry() {
+      try {
+        const res = await fetch(`${API_BASE}/telemetry`);
+        const vehicles = await res.json();
+
+        document.getElementById('fleet-live-badge').textContent = `${vehicles.length} Buses Online`;
+        const listContainer = document.getElementById('admin-active-vehicles-list');
+        listContainer.innerHTML = '';
+
+        const activeIds = new Set();
+
+        if (vehicles.length === 0) {
+          listContainer.innerHTML = '<p style="padding:16px; color:#78716c;">No buses currently broadcasting.</p>';
+        }
+
+        vehicles.forEach(v => {
+          activeIds.add(v.vehicle_id);
+
+          const popupContent = `
+            <b>🚌 ${v.vehicle_id}</b><br/>
+            <b>Route:</b> ${v.route_id}<br/>
+            <b>Speed:</b> ${v.speed} km/h<br/>
+            <b>Seats Free:</b> ${v.available_seats} / 16<br/>
+            <b>Status:</b> ${v.vehicle_status}
+          `;
+
+          if (busMarkers[v.vehicle_id]) {
+            busMarkers[v.vehicle_id].setLatLng([v.latitude, v.longitude]);
+            busMarkers[v.vehicle_id].getPopup().setContent(popupContent);
+          } else {
+            const marker = L.marker([v.latitude, v.longitude]).addTo(map);
+            marker.bindPopup(popupContent);
+            busMarkers[v.vehicle_id] = marker;
+          }
+
+          const item = document.createElement('article');
+          item.className = 'vehicle-item';
+          item.innerHTML = `
+            <div class="vehicle-title">
+              <strong>${v.vehicle_id}</strong>
+              <button class="btn-delete" onclick="deleteActiveBus('${v.vehicle_id}')">Remove Bus</button>
+            </div>
+            <p class="vehicle-meta">Corridor: ${v.route_id} • Status: ${v.vehicle_status}</p>
+            <div class="telemetry-row">
+              <span>Speed: ${v.speed.toFixed(1)} km/h</span>
+              <span>Available Seats: ${v.available_seats} / 16</span>
+            </div>
+          `;
+          listContainer.appendChild(item);
+        });
+
+        for (const id in busMarkers) {
+          if (!activeIds.has(id)) {
+            map.removeLayer(busMarkers[id]);
+            delete busMarkers[id];
+          }
+        }
+      } catch (err) {
+        console.error("Telemetry fetch error:", err);
+      }
+    }
+
+    async function deleteActiveBus(vehicleId) {
+      if (!confirm(`Remove ${vehicleId} from active broadcasts?`)) return;
+      const res = await fetch(`${API_BASE}/telemetry/${vehicleId}`, {method: 'DELETE'});
+      if (res.ok) {
+        if (busMarkers[vehicleId]) {
+          map.removeLayer(busMarkers[vehicleId]);
+          delete busMarkers[vehicleId];
+        }
+        loadTelemetry();
+      }
+    }
+
+    // 2. Load Pass Bookings Registry (Expired passes vanish)
+    async function loadPassBookings() {
+      try {
+        const res = await fetch(`${API_BASE}/passes/all-bookings`);
+        const rawBookings = await res.json();
+
+        // Filter out expired passes directly
+        const bookings = (rawBookings || []).filter(b => !isPassExpired(b));
+
+        document.getElementById('passes-total-badge').textContent = `${bookings.length} Active Pass${bookings.length === 1 ? '' : 'es'}`;
+        const tbody = document.getElementById('pass-bookings-table-body');
+        tbody.innerHTML = '';
+
+        if (!bookings || bookings.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8">No active transit pass bookings recorded in database.</td></tr>';
+          return;
+        }
+
+        bookings.forEach(b => {
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>#BK-${b.id}</strong></td>
+              <td><span style="font-weight:700; color:#064e3b;">👤 ${b.username}</span></td>
+              <td>${b.pass_name}</td>
+              <td><strong>${b.price}</strong></td>
+              <td><span class="badge ${b.category === 'Student' ? 'badge-amber' : 'badge-green'}">${b.category}</span></td>
+              <td>${b.validity}</td>
+              <td style="font-family:var(--font-mono); font-size:11.5px;">${b.booked_at}</td>
+              <td><span class="badge badge-green">${b.status}</span></td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        console.error("Error loading pass bookings:", err);
+      }
+    }
+
+    // 3. Load Corridors
+    async function loadRoutes() {
+      const res = await fetch(`${API_BASE}/routes`);
+      const routes = await res.json();
+      const tbody = document.getElementById('routes-table-body');
+      tbody.innerHTML = '';
+      routes.forEach(r => {
+        tbody.innerHTML += `
+          <tr>
+            <td><strong>${r.route_id}</strong></td>
+            <td>${r.name}</td>
+            <td>${r.bus_reg}</td>
+            <td>${r.default_speed} km/h</td>
+            <td>${r.default_eta} mins</td>
+            <td>${r.distance}</td>
+            <td><button class="btn-delete" onclick="deleteRoute('${r.route_id}')">Delete Corridor</button></td>
+          </tr>
+        `;
+      });
+    }
+
+    async function deleteRoute(routeId) {
+      if (!confirm(`Delete corridor ${routeId}? It will be removed across all portals.`)) return;
+      const res = await fetch(`${API_BASE}/routes/${routeId}`, {method: 'DELETE'});
+      if (res.ok) {
+        loadRoutes();
+        loadTelemetry();
+      }
+    }
+
+    // 4. Load Users (Permanently Masked with Dots)
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/users`);
+        const users = await res.json();
+        const tbody = document.getElementById('users-table-body');
+        tbody.innerHTML = '';
+
+        if (!users || users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">No registered accounts found.</td></tr>';
+          return;
+        }
+
+        users.forEach(u => {
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>#${u.id}</strong></td>
+              <td>${u.username}</td>
+              <td><span class="masked-pin">••••••••</span></td>
+              <td><span class="badge ${u.role === 'admin' ? 'badge-amber' : 'badge-green'}">${(u.role || '').toUpperCase()}</span></td>
+              <td><button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button></td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        console.error("Error loading users:", err);
+      }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm(`Delete user account #${id}?`)) return;
+      const res = await fetch(`${API_BASE}/users/${id}`, {method: 'DELETE'});
+      if (res.ok) loadUsers();
+    }
+
+    // 5. Load Stops
+    async function loadStops() {
+      const res = await fetch(`${API_BASE}/stops`);
+      const stops = await res.json();
+      const tbody = document.getElementById('stops-table-body');
+      tbody.innerHTML = '';
+      stops.forEach(s => {
+        tbody.innerHTML += `
+          <tr>
+            <td><strong>${s.stop_code}</strong></td>
+            <td>${s.stop_name}</td>
+            <td>${s.latitude}</td>
+            <td>${s.longitude}</td>
+            <td>${s.geofence_radius}</td>
+            <td>${s.associated_routes}</td>
+            <td><button class="btn-delete" onclick="deleteStop('${s.stop_code}')">Delete</button></td>
+          </tr>
+        `;
+      });
+    }
+
+    async function deleteStop(code) {
+      if (!confirm(`Delete bus stop ${code}?`)) return;
+      await fetch(`${API_BASE}/stops/${code}`, {method: 'DELETE'});
+      loadStops();
+    }
+
+    // 6. Load Logs
+    async function loadLogs() {
+      const res = await fetch(`${API_BASE}/logs`);
+      const logs = await res.json();
+      const tbody = document.getElementById('delay-logs-table-body');
+      tbody.innerHTML = '';
+      logs.forEach(l => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${l.timestamp}</td>
+            <td>${l.route_code}</td>
+            <td>${l.bus_plate}</td>
+            <td>${l.scheduled_arrival}</td>
+            <td>${l.actual_arrival}</td>
+            <td><span class="badge badge-amber">${l.deviation}</span></td>
+            <td>${l.primary_factor}</td>
+          </tr>
+        `;
+      });
+    }
+
+    document.getElementById('form-add-route').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        route_id: document.getElementById('route-id-input').value.trim(),
+        name: document.getElementById('route-name-input').value.trim(),
+        bus_reg: document.getElementById('route-plate-input').value.trim(),
+        default_speed: parseInt(document.getElementById('route-speed-input').value),
+        default_eta: document.getElementById('route-eta-input').value.trim(),
+        distance: document.getElementById('route-distance-input').value.trim(),
+        stops: [
+          {name: "Patiala Central Bus Stand", time: "08:00 AM"},
+          {name: "Midway Junction", time: "08:20 AM"},
+          {name: "Terminus Station", time: "08:45 AM"}
+        ]
+      };
+      const res = await fetch(`${API_BASE}/routes`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        closeModal('modal-route');
+        loadRoutes();
+      }
+    });
+
+    document.getElementById('form-add-user').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        username: document.getElementById('user-name-input').value.trim(),
+        password: document.getElementById('user-pin-input').value.trim(),
+        role: document.getElementById('user-role-input').value
+      };
+      const res = await fetch(`${API_BASE}/users`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        closeModal('modal-user');
+        loadUsers();
+      }
+    });
+
+    // Boot
+    loadRoutes();
+    loadTelemetry();
+    loadStops();
+    loadUsers();
+    loadLogs();
+    loadPassBookings();
+    setInterval(loadTelemetry, 3000);
+    setInterval(loadPassBookings, 5000);
+  </script>
+</body>
+
+</html>

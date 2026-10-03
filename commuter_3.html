@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TransitPulse — Live Bus Tracker & Fleet GPS</title>
+  <link rel="stylesheet" href="commuter_3.css" />
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    .schematic-wrapper {
+      overflow-y: auto !important;
+      justify-content: flex-start !important;
+      padding: 20px 24px 34px 24px !important;
+      width: 100% !important;
+    }
+
+    .main-layout {
+      width: 100%;
+      height: calc(100vh - var(--header-height));
+    }
+
+    .control-panel {
+      position: static !important;
+      width: 100% !important;
+      margin: 0 0 12px 0 !important;
+      display: flex !important;
+      gap: 12px !important;
+      z-index: 100 !important;
+    }
+
+    .btn-fullscreen-map {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #064e3b;
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid #10b981;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-fullscreen-map:hover {
+      background-color: #047857;
+      transform: translateY(-1px);
+    }
+
+    .corridor-pills-bar {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-bottom: 14px;
+      padding-bottom: 4px;
+    }
+    .pill-btn {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 7px 16px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .pill-btn:hover {
+      border-color: var(--brand-blue);
+      color: var(--brand-blue);
+    }
+    .pill-btn.active {
+      background: var(--brand-blue);
+      border-color: var(--brand-blue);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(9, 105, 218, 0.3);
+    }
+    .pill-count-badge {
+      background: rgba(0, 0, 0, 0.08);
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+    }
+    .pill-btn.active .pill-count-badge {
+      background: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+    }
+
+    .corridor-banner {
+      width: 100% !important;
+      margin-bottom: 14px !important;
+    }
+
+    #commuter-live-map {
+      height: 480px;
+      width: 100%;
+      border-radius: 14px;
+      border: 2px solid var(--border-color);
+      margin-bottom: 16px;
+      z-index: 1;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    }
+
+    .bus-map-pin {
+      background: #0969da;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 4px 8px;
+      border-radius: 20px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+    }
+    .bus-map-pin.focused {
+      background: #064e3b;
+      border-color: #34d399;
+      box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.35);
+    }
+
+    .stop-map-pin {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3px solid #64748b;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    .multi-bus-container {
+      width: 100%;
+      margin-bottom: 16px;
+    }
+    .multi-bus-label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .bus-cards-grid {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+    .bus-card-btn {
+      background: #ffffff;
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      min-width: 190px;
+      flex-shrink: 0;
+    }
+    .bus-card-btn:hover { border-color: var(--brand-blue); }
+    .bus-card-btn.active {
+      border-color: var(--brand-blue);
+      background: #eff6ff;
+      box-shadow: 0 3px 10px rgba(9, 105, 218, 0.22);
+    }
+    .bus-card-title {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--nav-dark);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .bus-card-meta {
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+    .bus-route-tag {
+      font-size: 0.68rem;
+      font-weight: 800;
+      background: #e2e8f0;
+      color: #334155;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    .track-container {
+      width: 100% !important;
+      max-width: none !important;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body class="tracker-body">
+
+  <header class="app-header">
+    <div class="brand-block">
+      <span class="brand-icon" aria-hidden="true">🚏</span>
+      <div class="brand-text">
+        <h1 class="brand-title">TransitPulse</h1>
+        <span class="city-tag">Patiala City Transport</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Full-Screen Map Direct Launch Button -->
+      <a href="live_map.html" id="header-map-launch" class="btn-fullscreen-map" title="Open Full-Screen Live Map">
+        🗺️ <span class="nav-text">Full-Screen Map</span>
+      </a>
+
+      <a href="passes_3.html" class="btn-nav-pass" title="View available bus passes">
+        🎟️ <span class="nav-text">Bus Passes</span>
+      </a>
+
+      <div class="status-indicator" role="status">
+        <span class="status-dot" id="live-sync-dot"></span>
+        <span class="status-label" id="live-sync-text">Live Sync</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-layout">
+
+    <section class="schematic-wrapper">
+      
+      <!-- Top Search & Controls -->
+      <div class="control-panel" aria-label="Route Search Controls">
+        <div class="search-group">
+          <label for="route-select" class="visually-hidden">Select Bus Corridor</label>
+          <select id="route-select" class="dropdown-control" aria-label="Select Bus Corridor">
+            <option value="">Loading Corridors from Database...</option>
+          </select>
+        </div>
+
+        <button id="btn-toggle-all" class="btn-secondary" title="View All City Buses" type="button">
+          <span class="btn-icon">🌐</span>
+          <span class="btn-text" id="toggle-all-text">All Buses</span>
+        </button>
+
+        <!-- In-view Launch to Full-Screen Webpage -->
+        <a href="live_map.html" id="control-map-launch" class="btn-fullscreen-map">
+          ⛶ Expand Fullscreen
+        </a>
+      </div>
+
+      <!-- Quick 1-Click Corridor Pills -->
+      <div class="corridor-pills-bar" id="corridor-pills-bar"></div>
+
+      <!-- Active Corridor Title Banner -->
+      <div class="corridor-banner">
+        <div class="corridor-banner-title">Current Active Route Corridor</div>
+        <div class="corridor-banner-name" id="schematic-corridor-name">Select a Corridor</div>
+      </div>
+
+      <!-- Embedded Street Map -->
+      <div id="commuter-live-map"></div>
+
+      <!-- Active Buses Selector -->
+      <div class="multi-bus-container">
+        <div class="multi-bus-label">
+          <span id="active-buses-header">Active Buses on this Corridor</span>
+          <span id="active-bus-count">0 Detected</span>
+        </div>
+        <div class="bus-cards-grid" id="bus-cards-grid"></div>
+      </div>
+
+      <!-- Schematic Milestones -->
+      <div class="track-container">
+        <div class="track-line-wrapper">
+          <div class="track-line-progress" id="schematic-progress"></div>
+          <div class="schematic-bus-pulse" id="schematic-bus">
+            <span>🚌</span> <span id="schematic-bus-text">Waiting for Bus Telemetry</span>
+          </div>
+          <div id="schematic-stops-row" style="display: contents;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trip Details Drawer -->
+    <aside class="trip-drawer" id="trip-drawer">
+      <div class="drawer-header">
+        <div class="bus-meta">
+          <span class="badge-route" id="active-route-badge">ROUTE --</span>
+          <span class="bus-reg" id="active-bus-reg">--</span>
+        </div>
+        <div class="telemetry-speed">
+          <span class="speed-value" id="current-speed">0</span>
+          <span class="speed-unit">km/h</span>
+        </div>
+      </div>
+
+      <div class="eta-card">
+        <div class="eta-primary">
+          <span class="eta-time" id="eta-minutes">--</span>
+          <span class="eta-unit">mins</span>
+        </div>
+        <div class="eta-subtext">
+          <span class="distance-metric" id="remaining-distance">-- km remaining</span>
+          <span class="bullet-sep">•</span>
+          <span class="next-stop-target" id="next-stop-name">Determining Stop...</span>
+        </div>
+      </div>
+
+      <div class="route-stops-container">
+        <h2 class="stops-section-title">Trip Milestones</h2>
+        <ol class="timeline-list" id="timeline-list"></ol>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API_BASE = window.location.origin + "/api";
+    let ROUTE_CACHE = {};
+    let activeBuses = [];
+    let allFleetTelemetry = [];
+    let physicalStops = [];
+    let selectedVehicleId = null;
+    let showAllNetwork = false;
+
+    // Read route parameter if returning from full-screen map
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentSelectedRoute = urlParams.get("route") || "route-101";
+
+    const routeSelect = document.getElementById("route-select");
+    const corridorPillsBar = document.getElementById("corridor-pills-bar");
+    const activeRouteBadge = document.getElementById("active-route-badge");
+    const activeBusReg = document.getElementById("active-bus-reg");
+    const currentSpeed = document.getElementById("current-speed");
+    const etaMinutes = document.getElementById("eta-minutes");
+    const remainingDistance = document.getElementById("remaining-distance");
+    const nextStopName = document.getElementById("next-stop-name");
+    const timelineList = document.getElementById("timeline-list");
+    const schematicCorridorName = document.getElementById("schematic-corridor-name");
+    const schematicStopsRow = document.getElementById("schematic-stops-row");
+    const schematicBusText = document.getElementById("schematic-bus-text");
+    const busCardsGrid = document.getElementById("bus-cards-grid");
+    const activeBusCount = document.getElementById("active-bus-count");
+    const activeBusesHeader = document.getElementById("active-buses-header");
+    const btnToggleAll = document.getElementById("btn-toggle-all");
+    const toggleAllText = document.getElementById("toggle-all-text");
+    const headerMapLaunch = document.getElementById("header-map-launch");
+    const controlMapLaunch = document.getElementById("control-map-launch");
+
+    // Initialize Map at street level
+    const map = L.map('commuter-live-map').setView([30.3398, 76.3869], 14.5);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri &mdash; Patiala City Transport'
+    }).addTo(map);
+
+    setTimeout(() => map.invalidateSize(), 300);
+    window.addEventListener('resize', () => map.invalidateSize());
+
+    const mapMarkers = {};
+    const stopMarkers = {};
+
+    function updateFullscreenLinks(routeKey) {
+      const link = `live_map.html?route=${encodeURIComponent(routeKey)}`;
+      headerMapLaunch.href = link;
+      controlMapLaunch.href = link;
+    }
+
+    async function loadCorridors() {
+      try {
+        const [routesRes, telemetryRes, stopsRes] = await Promise.all([
+          fetch(`${API_BASE}/routes`),
+          fetch(`${API_BASE}/telemetry`),
+          fetch(`${API_BASE}/stops`)
+        ]);
+
+        const routes = await routesRes.json();
+        allFleetTelemetry = await telemetryRes.json();
+        physicalStops = await stopsRes.json();
+
+        ROUTE_CACHE = {};
+        routeSelect.innerHTML = "";
+
+        const routeCountMap = {};
+        allFleetTelemetry.forEach(b => {
+          routeCountMap[b.route_id] = (routeCountMap[b.route_id] || 0) + 1;
+        });
+
+        corridorPillsBar.innerHTML = "";
+
+        routes.forEach((r) => {
+          ROUTE_CACHE[r.route_id] = {
+            id: r.route_id,
+            name: r.name,
+            busReg: r.bus_reg,
+            speed: r.default_speed,
+            eta: r.default_eta,
+            distance: r.distance,
+            stops: JSON.parse(r.stops_json || "[]")
+          };
+
+          const liveCount = routeCountMap[r.route_id] || 0;
+
+          const opt = document.createElement("option");
+          opt.value = r.route_id;
+          opt.textContent = `${r.name} ${liveCount > 0 ? `(${liveCount} Live)` : ''}`;
+          if (r.route_id === currentSelectedRoute) opt.selected = true;
+          routeSelect.appendChild(opt);
+
+          const pill = document.createElement("button");
+          pill.type = "button";
+          pill.className = `pill-btn ${r.route_id === currentSelectedRoute ? 'active' : ''}`;
+          pill.id = `pill-${r.route_id}`;
+          pill.innerHTML = `
+            <span>${r.route_id.toUpperCase()}</span>
+            <span class="pill-count-badge">${liveCount} Live</span>
+          `;
+          pill.addEventListener("click", () => switchCorridor(r.route_id));
+          corridorPillsBar.appendChild(pill);
+        });
+
+        renderPhysicalStops();
+        switchCorridor(currentSelectedRoute);
+      } catch (err) {
+        console.error(err);
+        routeSelect.innerHTML = "<option>Error loading corridors</option>";
+      }
+    }
+
+    function renderPhysicalStops() {
+      physicalStops.forEach(s => {
+        if (!stopMarkers[s.stop_code]) {
+          const icon = L.divIcon({
+            className: 'stop-map-pin',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+          });
+          const marker = L.marker([s.latitude, s.longitude], { icon }).addTo(map);
+          marker.bindPopup(`<b>🚏 ${s.stop_name}</b><br/>Code: ${s.stop_code}<br/>Radius: ${s.geofence_radius}`);
+          stopMarkers[s.stop_code] = marker;
+        }
+      });
+    }
+
+    function switchCorridor(routeKey) {
+      currentSelectedRoute = routeKey;
+      showAllNetwork = false;
+      toggleAllText.textContent = "All Buses";
+      activeBusesHeader.textContent = "Active Buses on this Corridor";
+
+      routeSelect.value = routeKey;
+      document.querySelectorAll('.pill-btn').forEach(p => p.classList.remove('active'));
+      const activePill = document.getElementById(`pill-${routeKey}`);
+      if (activePill) activePill.classList.add('active');
+
+      updateFullscreenLinks(routeKey);
+
+      selectedVehicleId = null;
+      renderRoute(routeKey);
+      pollBuses(routeKey);
+    }
+
+    function renderRoute(routeKey) {
+      const route = ROUTE_CACHE[routeKey];
+      if (!route) return;
+
+      activeRouteBadge.textContent = route.id.toUpperCase();
+      activeBusReg.textContent = route.busReg;
+      currentSpeed.textContent = route.speed;
+      etaMinutes.textContent = route.eta;
+      remainingDistance.textContent = route.distance;
+      nextStopName.textContent = `Approaching: ${route.stops[1] ? route.stops[1].name : "Terminus"}`;
+      schematicCorridorName.textContent = route.name;
+      schematicBusText.textContent = `Scheduled Fleet (${route.speed} km/h)`;
+
+      schematicStopsRow.innerHTML = "";
+      route.stops.forEach((stop, idx) => {
+        const div = document.createElement("div");
+        div.className = `schematic-stop ${idx === 0 ? "completed" : idx === 1 ? "active" : ""}`;
+        div.innerHTML = `
+          <div class="schematic-stop-dot"></div>
+          <div class="schematic-stop-name">${stop.name}</div>
+        `;
+        schematicStopsRow.appendChild(div);
+      });
+
+      timelineList.innerHTML = "";
+      route.stops.forEach((stop, idx) => {
+        const li = document.createElement("li");
+        li.className = `timeline-item ${idx === 0 ? "passed" : idx === 1 ? "current" : "upcoming"}`;
+        const subtitle = idx === 0 ? `Departed ${stop.time}` : idx === 1 ? `Approaching (~2 mins)` : `Scheduled ${stop.time}`;
+        li.innerHTML = `
+          <span class="stop-dot"></span>
+          <div class="stop-info">
+            <span class="stop-name">${stop.name}</span>
+            <span class="stop-time">${subtitle}</span>
+          </div>
+        `;
+        timelineList.appendChild(li);
+      });
+    }
+
+    async function pollBuses(routeKey) {
+      try {
+        const url = showAllNetwork 
+          ? `${API_BASE}/telemetry` 
+          : `${API_BASE}/telemetry/route/${routeKey}`;
+
+        const res = await fetch(url);
+        if (!res.ok) return;
+        activeBuses = await res.json();
+
+        activeBusCount.textContent = `${activeBuses.length} Active Bus${activeBuses.length === 1 ? '' : 'es'}`;
+        renderMultiBusCards();
+        updateMapMarkers();
+
+        const focused = activeBuses.find(b => b.vehicle_id === selectedVehicleId) || activeBuses[0];
+        if (focused) {
+          selectBus(focused, false);
+        } else if (activeBuses.length === 0) {
+          map.setView([30.3398, 76.3869], 14);
+        }
+      } catch (e) {
+        console.warn("Polling error:", e);
+      }
+    }
+
+    function selectBus(bus, panMap = true) {
+      selectedVehicleId = bus.vehicle_id;
+
+      if (bus.route_id && bus.route_id !== currentSelectedRoute) {
+        currentSelectedRoute = bus.route_id;
+        routeSelect.value = bus.route_id;
+        document.querySelectorAll('.pill-btn').forEach(p => p.classList.remove('active'));
+        const activePill = document.getElementById(`pill-${bus.route_id}`);
+        if (activePill) activePill.classList.add('active');
+        updateFullscreenLinks(bus.route_id);
+        renderRoute(bus.route_id);
+      }
+
+      currentSpeed.textContent = bus.speed.toFixed(0);
+      activeBusReg.textContent = bus.vehicle_id;
+      schematicBusText.textContent = `${bus.vehicle_id} (${bus.speed.toFixed(0)} km/h • ${bus.available_seats} seats free)`;
+
+      renderMultiBusCards();
+
+      if (panMap && mapMarkers[bus.vehicle_id]) {
+        map.setView([bus.latitude, bus.longitude], 15, { animate: true });
+        mapMarkers[bus.vehicle_id].openPopup();
+      }
+    }
+
+    function renderMultiBusCards() {
+      busCardsGrid.innerHTML = "";
+
+      if (activeBuses.length === 0) {
+        busCardsGrid.innerHTML = `
+          <div style="font-size:0.8rem; color:var(--text-muted); padding: 8px 0;">
+            No live buses broadcasting on this corridor right now. Showing scheduled line.
+          </div>
+        `;
+        return;
+      }
+
+      activeBuses.forEach(b => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `bus-card-btn ${b.vehicle_id === selectedVehicleId ? "active" : ""}`;
+        btn.innerHTML = `
+          <div class="bus-card-title">
+            <span>🚌 ${b.vehicle_id}</span>
+            <span class="bus-route-tag">${b.route_id.toUpperCase()}</span>
+          </div>
+          <div class="bus-card-meta">${b.speed.toFixed(0)} km/h • <b>${b.available_seats} / 16</b> seats free</div>
+        `;
+        btn.addEventListener("click", () => selectBus(b, true));
+        busCardsGrid.appendChild(btn);
+      });
+    }
+
+    function updateMapMarkers() {
+      const liveIds = new Set();
+      const markerGroup = [];
+
+      activeBuses.forEach(b => {
+        liveIds.add(b.vehicle_id);
+        const isFocused = b.vehicle_id === selectedVehicleId;
+
+        const customIcon = L.divIcon({
+          className: 'custom-bus-icon-wrap',
+          html: `<div class="bus-map-pin ${isFocused ? 'focused' : ''}">🚌 ${b.vehicle_id}</div>`,
+          iconSize: [100, 30],
+          iconAnchor: [50, 15]
+        });
+
+        const popupText = `
+          <div style="font-family: sans-serif; font-size: 13px;">
+            <b style="font-size:14px; color:#0969da;">🚌 ${b.vehicle_id}</b><br/>
+            <b>Corridor:</b> ${b.route_id.toUpperCase()}<br/>
+            <b>Speed:</b> ${b.speed.toFixed(1)} km/h<br/>
+            <b>Seats Available:</b> ${b.available_seats} / 16<br/>
+            <b>Status:</b> ${b.vehicle_status}
+          </div>
+        `;
+
+        if (mapMarkers[b.vehicle_id]) {
+          mapMarkers[b.vehicle_id].setLatLng([b.latitude, b.longitude]);
+          mapMarkers[b.vehicle_id].setIcon(customIcon);
+          mapMarkers[b.vehicle_id].getPopup().setContent(popupText);
+        } else {
+          const marker = L.marker([b.latitude, b.longitude], { icon: customIcon }).addTo(map);
+          marker.bindPopup(popupContent);
+          marker.on('click', () => selectBus(b, true));
+          mapMarkers[b.vehicle_id] = marker;
+        }
+
+        markerGroup.push([b.latitude, b.longitude]);
+      });
+
+      if (showAllNetwork && markerGroup.length > 1) {
+        map.fitBounds(markerGroup, { padding: [50, 50], maxZoom: 15 });
+      }
+
+      for (const id in mapMarkers) {
+        if (!liveIds.has(id)) {
+          map.removeLayer(mapMarkers[id]);
+          delete mapMarkers[id];
+        }
+      }
+    }
+
+    routeSelect.addEventListener("change", (e) => switchCorridor(e.target.value));
+
+    btnToggleAll.addEventListener("click", () => {
+      showAllNetwork = !showAllNetwork;
+      toggleAllText.textContent = showAllNetwork ? "Corridor Only" : "All Buses";
+      activeBusesHeader.textContent = showAllNetwork ? "All Active Buses in Patiala" : "Active Buses on this Corridor";
+      pollBuses(currentSelectedRoute);
+    });
+
+    setInterval(() => {
+      pollBuses(currentSelectedRoute);
+    }, 3000);
+
+    loadCorridors();
+  </script>
+</body>
+</html>

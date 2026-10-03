@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TransitPulse — Full-Screen Live Fleet Map</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --brand-blue: #0969da;
+      --brand-dark: #0a1628;
+      --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'Space Grotesk', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-ui);
+      background-color: #0a1628;
+    }
+
+    /* 100% Viewport Map Canvas */
+    #fullscreen-map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    /* Floating Glassmorphic Top Controls Bar */
+    .top-floating-hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .hud-group-left, .hud-group-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .hud-btn {
+      background: rgba(10, 22, 40, 0.9);
+      backdrop-filter: blur(10px);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      padding: 10px 18px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .hud-btn:hover {
+      background: var(--brand-blue);
+      border-color: var(--brand-blue);
+      transform: translateY(-1px);
+    }
+
+    .route-dropdown-select {
+      background: rgba(10, 22, 40, 0.9);
+      backdrop-filter: blur(10px);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .route-dropdown-select option {
+      background: #0a1628;
+      color: #ffffff;
+    }
+
+    /* Floating Bottom Drawer for Active Buses */
+    .bottom-floating-hud {
+      position: absolute;
+      bottom: 24px;
+      left: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .bus-selector-card-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 6px 2px;
+      pointer-events: auto;
+    }
+
+    .floating-bus-card {
+      background: rgba(10, 22, 40, 0.92);
+      backdrop-filter: blur(12px);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 12px 18px;
+      min-width: 220px;
+      color: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .floating-bus-card:hover {
+      border-color: #38bdf8;
+      transform: translateY(-2px);
+    }
+
+    .floating-bus-card.active {
+      border-color: #38bdf8;
+      background: rgba(9, 105, 218, 0.9);
+      box-shadow: 0 8px 24px rgba(9, 105, 218, 0.45);
+    }
+
+    .bus-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .bus-plate-title {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .bus-route-pill {
+      font-size: 0.65rem;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .bus-card-meta {
+      font-size: 0.76rem;
+      color: #94a3b8;
+      display: flex;
+      gap: 10px;
+    }
+
+    .floating-bus-card.active .bus-card-meta {
+      color: #e0f2fe;
+    }
+
+    /* Telemetry Pill Badges */
+    .bus-map-pin {
+      background: #0969da;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 5px 10px;
+      border-radius: 20px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+    }
+
+    .bus-map-pin.focused {
+      background: #064e3b;
+      border-color: #34d399;
+      box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.4);
+    }
+
+    .stop-map-pin {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3px solid #0969da;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    @media (max-width: 768px) {
+      .top-floating-hud {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .hud-group-left, .hud-group-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fullscreen Map Canvas -->
+  <div id="fullscreen-map"></div>
+
+  <!-- Top Floating HUD Controls -->
+  <div class="top-floating-hud">
+    <div class="hud-group-left">
+      <a href="commuter_3.html" class="hud-btn" id="btn-back">
+        ← Back to Portal
+      </a>
+      <select id="route-select" class="route-dropdown-select" aria-label="Select Bus Corridor">
+        <option value="">Loading corridors...</option>
+      </select>
+    </div>
+
+    <div class="hud-group-right">
+      <button type="button" class="hud-btn" id="btn-toggle-network">
+        <span>🌐</span> <span id="toggle-network-text">All City Buses</span>
+      </button>
+      <div class="hud-btn" style="pointer-events: none; background: rgba(6, 78, 59, 0.9); border-color: #34d399;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+        <span id="live-fleet-count">0 Buses Live</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Floating HUD Multi-Bus Bar -->
+  <div class="bottom-floating-hud">
+    <div class="bus-selector-card-row" id="bus-cards-row">
+      <!-- Injected dynamically with active vehicles -->
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API_BASE = window.location.origin + "/api";
+    let activeBuses = [];
+    let physicalStops = [];
+    let selectedVehicleId = null;
+    let showAllNetwork = false;
+
+    // Read corridor from URL parameters (e.g., live_map.html?route=route-103)
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentSelectedRoute = urlParams.get("route") || "route-101";
+
+    const routeSelect = document.getElementById("route-select");
+    const busCardsRow = document.getElementById("bus-cards-row");
+    const liveFleetCount = document.getElementById("live-fleet-count");
+    const btnToggleNetwork = document.getElementById("btn-toggle-network");
+    const toggleNetworkText = document.getElementById("toggle-network-text");
+    const btnBack = document.getElementById("btn-back");
+
+    // Configure Back button to preserve selected route
+    btnBack.href = `commuter_3.html?route=${encodeURIComponent(currentSelectedRoute)}`;
+
+    // Initialize 100% Fullscreen Map using Esri World Street Map (No watermarks, street-level detail)
+    const map = L.map('fullscreen-map', {
+      zoomControl: false
+    }).setView([30.3398, 76.3869], 14.5);
+
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri &mdash; Patiala City Transport'
+    }).addTo(map);
+
+    const mapMarkers = {};
+    const stopMarkers = {};
+
+    // 1. Load Corridors & Stops from SQLite
+    async function loadCorridors() {
+      try {
+        const [routesRes, stopsRes] = await Promise.all([
+          fetch(`${API_BASE}/routes`),
+          fetch(`${API_BASE}/stops`)
+        ]);
+
+        const routes = await routesRes.json();
+        physicalStops = await stopsRes.json();
+
+        routeSelect.innerHTML = "";
+        routes.forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r.route_id;
+          opt.textContent = `${r.route_id.toUpperCase()}: ${r.name}`;
+          if (r.route_id === currentSelectedRoute) opt.selected = true;
+          routeSelect.appendChild(opt);
+        });
+
+        renderPhysicalStops();
+        pollTelemetry();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // 2. Render Registered Stops along the route
+    function renderPhysicalStops() {
+      physicalStops.forEach(s => {
+        if (!stopMarkers[s.stop_code]) {
+          const icon = L.divIcon({
+            className: 'stop-map-pin',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+          });
+          const marker = L.marker([s.latitude, s.longitude], { icon }).addTo(map);
+          marker.bindPopup(`<b>🚏 ${s.stop_name}</b><br/>Code: ${s.stop_code}<br/>Geofence: ${s.geofence_radius}`);
+          stopMarkers[s.stop_code] = marker;
+        }
+      });
+    }
+
+    // 3. Poll Telemetry (Current Route vs All Network)
+    async function pollTelemetry() {
+      try {
+        const url = showAllNetwork 
+          ? `${API_BASE}/telemetry` 
+          : `${API_BASE}/telemetry/route/${currentSelectedRoute}`;
+
+        const res = await fetch(url);
+        if (!res.ok) return;
+        activeBuses = await res.json();
+
+        liveFleetCount.textContent = `${activeBuses.length} Bus${activeBuses.length === 1 ? '' : 'es'} Live`;
+        renderFloatingCards();
+        updateMarkers();
+
+        // Focus on selected bus or default to first
+        const current = activeBuses.find(b => b.vehicle_id === selectedVehicleId) || activeBuses[0];
+        if (current && !selectedVehicleId) {
+          selectBus(current, false);
+        }
+      } catch (err) {
+        console.warn("Poll error:", err);
+      }
+    }
+
+    // 4. Select Bus & Smoothly Center Map
+    function selectBus(bus, pan = true) {
+      selectedVehicleId = bus.vehicle_id;
+      renderFloatingCards();
+
+      if (pan && mapMarkers[bus.vehicle_id]) {
+        map.setView([bus.latitude, bus.longitude], 15.5, { animate: true });
+        mapMarkers[bus.vehicle_id].openPopup();
+      }
+    }
+
+    // 5. Render Floating Multi-Bus Cards Row
+    function renderFloatingCards() {
+      busCardsRow.innerHTML = "";
+
+      if (activeBuses.length === 0) {
+        busCardsRow.innerHTML = `
+          <div class="floating-bus-card" style="cursor:default;">
+            <div class="bus-plate-title">No Buses Active</div>
+            <div class="bus-card-meta">No drivers broadcasting on ${currentSelectedRoute.toUpperCase()}</div>
+          </div>
+        `;
+        return;
+      }
+
+      activeBuses.forEach(b => {
+        const card = document.createElement("div");
+        card.className = `floating-bus-card ${b.vehicle_id === selectedVehicleId ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="bus-card-head">
+            <span class="bus-plate-title">🚌 ${b.vehicle_id}</span>
+            <span class="bus-route-pill">${b.route_id}</span>
+          </div>
+          <div class="bus-card-meta">
+            <span>⚡ ${b.speed.toFixed(0)} km/h</span>
+            <span>💺 ${b.available_seats} / 16 Free</span>
+          </div>
+        `;
+        card.addEventListener("click", () => selectBus(b, true));
+        busCardsRow.appendChild(card);
+      });
+    }
+
+    // 6. Update Leaflet Map Markers with Animated Pins
+    function updateMarkers() {
+      const liveIds = new Set();
+      const bounds = [];
+
+      activeBuses.forEach(b => {
+        liveIds.add(b.vehicle_id);
+        const isFocused = b.vehicle_id === selectedVehicleId;
+
+        const customIcon = L.divIcon({
+          className: 'bus-pin-wrapper',
+          html: `<div class="bus-map-pin ${isFocused ? 'focused' : ''}">🚌 ${b.vehicle_id} (${b.speed.toFixed(0)} km/h)</div>`,
+          iconSize: [120, 32],
+          iconAnchor: [60, 16]
+        });
+
+        const popupContent = `
+          <div style="font-family:sans-serif; font-size:13px; line-height:1.4;">
+            <b style="font-size:14px; color:#0969da;">🚌 ${b.vehicle_id}</b><br/>
+            <b>Corridor:</b> ${b.route_id.toUpperCase()}<br/>
+            <b>Speed:</b> ${b.speed.toFixed(1)} km/h<br/>
+            <b>Available Seats:</b> ${b.available_seats} / 16 Free<br/>
+            <b>Status:</b> ${b.vehicle_status}
+          </div>
+        `;
+
+        if (mapMarkers[b.vehicle_id]) {
+          mapMarkers[b.vehicle_id].setLatLng([b.latitude, b.longitude]);
+          mapMarkers[b.vehicle_id].setIcon(customIcon);
+          mapMarkers[b.vehicle_id].getPopup().setContent(popupContent);
+        } else {
+          const marker = L.marker([b.latitude, b.longitude], { icon: customIcon }).addTo(map);
+          marker.bindPopup(popupContent);
+          marker.on('click', () => selectBus(b, true));
+          mapMarkers[b.vehicle_id] = marker;
+        }
+
+        bounds.push([b.latitude, b.longitude]);
+      });
+
+      // Remove inactive or ended buses
+      for (const id in mapMarkers) {
+        if (!liveIds.has(id)) {
+          map.removeLayer(mapMarkers[id]);
+          delete mapMarkers[id];
+        }
+      }
+
+      // Auto-fit network when "All City Buses" is toggled
+      if (showAllNetwork && bounds.length > 1) {
+        map.fitBounds(bounds, { padding: [80, 80], maxZoom: 16 });
+      }
+    }
+
+    // Corridor change
+    routeSelect.addEventListener("change", (e) => {
+      currentSelectedRoute = e.target.value;
+      showAllNetwork = false;
+      toggleNetworkText.textContent = "All City Buses";
+      selectedVehicleId = null;
+      btnBack.href = `commuter_3.html?route=${encodeURIComponent(currentSelectedRoute)}`;
+      pollTelemetry();
+    });
+
+    // Toggle All Buses vs Route Only
+    btnToggleNetwork.addEventListener("click", () => {
+      showAllNetwork = !showAllNetwork;
+      toggleNetworkText.textContent = showAllNetwork ? "Route Only" : "All City Buses";
+      pollTelemetry();
+    });
+
+    // Live sync polling every 3 seconds
+    setInterval(pollTelemetry, 3000);
+
+    loadCorridors();
+  </script>
+</body>
+</html>
